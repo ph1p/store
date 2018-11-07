@@ -6,6 +6,7 @@ import { tap } from 'rxjs/operators';
 
 @Injectable()
 export class NgxsStoragePlugin implements NgxsPlugin {
+
   constructor(
     @Inject(NGXS_STORAGE_PLUGIN_OPTIONS) private _options: NgxsStoragePluginOptions,
     @Inject(STORAGE_ENGINE) private _engine: StorageEngine
@@ -15,11 +16,13 @@ export class NgxsStoragePlugin implements NgxsPlugin {
     const options = this._options || <any>{};
     const matches = actionMatcher(event);
     const isInitAction = matches(InitState) || matches(UpdateState);
-    const keys = Array.isArray(options.key) ? options.key : [options.key];
+    const keysAreAnArray = Array.isArray(options.key);
+    const keys = keysAreAnArray ? options.key : [options.key];
     let hasMigration = false;
 
     if (isInitAction) {
       for (const key of keys) {
+
         const isMaster = key === '@@STATE';
         let val = this._engine.getItem(key);
 
@@ -42,7 +45,7 @@ export class NgxsStoragePlugin implements NgxsPlugin {
             });
           }
 
-          if (!isMaster) {
+          if (isMaster && keysAreAnArray) {
             state = setValue(state, key, val);
           } else {
             state = { ...state, ...val };
@@ -56,9 +59,10 @@ export class NgxsStoragePlugin implements NgxsPlugin {
         if (!isInitAction || (isInitAction && hasMigration)) {
           for (const key of keys) {
             let val = nextState;
+            const foundStateValue = getValue(nextState, key);
 
-            if (key !== '@@STATE') {
-              val = getValue(nextState, key);
+            if (key !== '@@STATE' && keysAreAnArray && !!foundStateValue) {
+              val = foundStateValue;
             }
 
             try {
